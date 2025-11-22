@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import * as T from "./three.module.js";
-import { handleInput } from "./inputHandler.js";
+import { handleInput, keys } from "./inputHandler.js";
 
 let renderer = new T.WebGLRenderer({preserveDrawingBuffer:true});
 renderer.setSize(500, 500);
@@ -23,6 +23,10 @@ let lives = 3;
 let invulnerable = false;
 let invulnerabilityTimer = 0;
 let gameTime = 0;
+let projectiles = [];
+const PROJECTILE_SPEED = 0.8;
+const FIRE_RATE = 400; // Milliseconds between shots
+let lastShotTime = 0;
 
 // Polished constants
 const MAX_OBSTACLES = 25; // Memory management
@@ -103,6 +107,14 @@ function resetGame() {
     startBtn.disabled = false;
     stopBtn.disabled = true;
     modeBtn.disabled = false;
+
+    // Clear all projectiles
+    projectiles.forEach(p => {
+        scene.remove(p);
+        p.geometry.dispose();
+        p.material.dispose();
+    });
+    projectiles = [];
     
     console.log("Game Reset!");
 }
@@ -144,6 +156,52 @@ function createPlayer() {
     player = new T.Mesh(geometry, material);
     player.position.set(0, 0, -5);
     scene.add(player);
+}
+// Shoot projectile function
+function shootProjectile() {
+    if (!gameRunning) return;
+
+    const now = Date.now();
+    if (now - lastShotTime < FIRE_RATE) return; // Cooldown check
+    lastShotTime = now;
+
+    // Create laser geometry (long thin box)
+    const geometry = new T.BoxGeometry(0.2, 0.2, 2);
+    const material = new T.MeshStandardMaterial({ 
+        color: 0xffff00, // Yellow laser
+        emissive: 0xffff00, // Makes it glow
+        emissiveIntensity: 0.5
+    });
+    
+    const projectile = new T.Mesh(geometry, material);
+    
+    // Spawn at player position
+    projectile.position.copy(player.position);
+    
+    // Add to scene and array
+    scene.add(projectile);
+    projectiles.push(projectile);
+    
+    console.log("Pew!");
+}
+function spawnProjectile() {
+    // A long, thin yellow box looks like a laser
+    const geometry = new T.BoxGeometry(0.2, 0.2, 1); 
+    const material = new T.MeshStandardMaterial({ 
+        color: 0xffff00, 
+        emissive: 0xffff00, // Makes it look like it's glowing
+        emissiveIntensity: 0.8
+    });
+    const projectile = new T.Mesh(geometry, material);
+
+    // 2. Position it at the player's current spot
+    // We offset Z slightly so it doesn't clip inside the player box
+    projectile.position.copy(player.position);
+    projectile.position.z += 1.0; 
+
+    // 3. Add to scene and tracking array
+    scene.add(projectile);
+    projectiles.push(projectile);
 }
 
 // Enhanced obstacle spawning with speed variety
@@ -196,6 +254,66 @@ function spawnObstacle() {
     obstacles.push(obstacle);
 }
 
+function updateProjectiles() {
+    // 1. Check Input (Spacebar)
+    // " " is the key string for Spacebar in most browsers
+    if (keys[" "] || keys["Spacebar"]) {
+        const now = Date.now();
+        if (now - lastShotTime > FIRE_RATE) {
+            spawnProjectile();
+            lastShotTime = now;
+        }
+    }
+
+    // 2. Move and Collide Projectiles
+    // Iterate backwards so we can safely remove items
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        
+        // Move bullet "forward" (Towards positive Z in your setup)
+        p.position.z += PROJECTILE_SPEED;
+
+        // Cleanup: Remove if it goes too far off screen (Memory Management)
+        if (p.position.z > 50) {
+            scene.remove(p);
+            p.geometry.dispose();
+            p.material.dispose();
+            projectiles.splice(i, 1);
+            continue;
+        }
+
+        // Check Collision with Obstacles
+        for (let j = obstacles.length - 1; j >= 0; j--) {
+            const obs = obstacles[j];
+            
+            // Calculate distance between bullet and obstacle
+            const dist = p.position.distanceTo(obs.position);
+            
+            // Get obstacle size (from your existing userData)
+            const hitDistance = obs.userData.size + 0.5; 
+
+            if (dist < hitDistance) {
+                // --- HIT! ---
+                
+                // 1. Remove Obstacle
+                scene.remove(obs);
+                obs.geometry.dispose();
+                obs.material.dispose();
+                obstacles.splice(j, 1);
+                
+                // 2. Remove Projectile
+                scene.remove(p);
+                p.geometry.dispose();
+                p.material.dispose();
+                projectiles.splice(i, 1);
+                
+                console.log("Target Destroyed!");
+                break; // Stop checking this bullet, it's gone
+            }
+        }
+    }
+}
+
 // Enhanced collision detection with size-based collision
 function checkCollisions() {
     if (invulnerable) return;
@@ -235,6 +353,9 @@ function updateGame() {
     
     // Update difficulty
     updateDifficulty();
+
+    // Update projectiles
+    updateProjectiles();
     
     // Handle invulnerability timer
     if (invulnerable) {
@@ -325,6 +446,13 @@ updateModeDisplay();
 
 // Initialize button states
 stopBtn.disabled = true;
+
+// Keydown event for shooting
+window.addEventListener('keydown', (event) => {
+    if (event.code === 'Space') {
+        shootProjectile();
+    }
+});
 
 function animate() {
     handleInput(player, gameRunning);
