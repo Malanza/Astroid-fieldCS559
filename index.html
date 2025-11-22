@@ -1,18 +1,35 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <link rel="stylesheet" href="style.css" />
-  </head>
 
-  <body>
-    <div id="div1"></div>
-    <script type="importmap">
+<head>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <div id="div1"></div>
+  <script type="importmap">
       {
           "imports": {
               "three": "three.module.js"
           }
       }
   </script>
-    <script src="main.js" type="module" defer></script>
-  </body>
+  <div id="gameContainer">
+    <div id="div1"></div>
+    <div id="gameUI">
+      <div id="lives">Lives: 3</div>
+      <div id="score">Score: 0</div>
+      <div id="modeDisplay">Mode: Prototype</div>
+    </div>
+    <div id="controls">
+      <button id="startBtn">Start Game</button>
+      <button id="stopBtn">Pause Game</button>
+      <button id="resetBtn">Reset Game</button>
+      <button id="modeBtn">Switch to Full Mode</button>
+    </div>
+  </div>
+  <script src="main.js" type="module" defer></script>
+</body>
+
 </html>
