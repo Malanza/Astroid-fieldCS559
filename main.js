@@ -24,6 +24,9 @@ let invulnerable = false;
 let invulnerabilityTimer = 0;
 let gameTime = 0;
 let projectiles = [];
+let score = 0; // Add score tracking
+let highScore = parseInt(localStorage.getItem('asteroidHighScore')) || 0; // High score persistence
+let particles = []; // Particle system
 const PROJECTILE_SPEED = 0.8;
 const FIRE_RATE = 400; // Milliseconds between shots
 let lastShotTime = 0;
@@ -34,6 +37,7 @@ const COLLISION_DISTANCE = 2.2; // Slightly increased collision threshold
 const INVULNERABILITY_TIME = 100; // 1.67 seconds at 60fps
 const BOUNDARY_X = 12; // Play area boundaries
 const BOUNDARY_Y = 6;
+const POINTS_PER_DESTROY = 20; // Points for destroying an obstacle
 
 // Button references
 const startBtn = document.getElementById('startBtn');
@@ -42,6 +46,8 @@ const resetBtn = document.getElementById('resetBtn');
 const modeBtn = document.getElementById('modeBtn');
 const livesDisplay = document.getElementById('lives');
 const modeDisplay = document.getElementById('modeDisplay');
+const scoreDisplay = document.getElementById('score');
+const highScoreDisplay = document.getElementById('highScore');
 
 // Button event listeners
 startBtn.addEventListener('click', startGame);
@@ -58,6 +64,114 @@ function updateModeDisplay() {
     modeBtn.textContent = isPrototypeMode ? 'Switch to Full Mode' : 'Switch to Prototype Mode';
 }
 
+function updateScoreDisplay() {
+    scoreDisplay.textContent = `Score: ${score}`;
+}
+
+function updateHighScoreDisplay() {
+    highScoreDisplay.textContent = `High Score: ${highScore}`;
+}
+
+function addScore(points) {
+    score += points;
+    updateScoreDisplay();
+    console.log(`Score: ${score} (+${points})`);
+}
+
+// Check and update high score only at game end
+function checkHighScore() {
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('asteroidHighScore', highScore.toString());
+        updateHighScoreDisplay();
+        console.log(`New High Score: ${highScore}!`);
+        return true; // Return true if new high score
+    }
+    return false;
+}
+
+// Particle System
+function createParticle(position, velocity, color, life) {
+    const geometry = new T.SphereGeometry(0.15, 6, 6); // Larger particles
+    const material = new T.MeshStandardMaterial({ 
+        color: color,
+        transparent: true,
+        opacity: 1.0,
+        emissive: color, // Make particles glow
+        emissiveIntensity: 0.3
+    });
+    
+    const particle = new T.Mesh(geometry, material);
+    particle.position.copy(position);
+    
+    particle.userData = {
+        velocity: velocity.clone(),
+        life: life,
+        maxLife: life,
+        fadeRate: 1.0 / life
+    };
+    
+    scene.add(particle);
+    particles.push(particle);
+}
+
+function createExplosion(position) {
+    // Create more particles for bigger explosion effect
+    for (let i = 0; i < 12; i++) { // Increased from 8 to 12
+        const velocity = new T.Vector3(
+            (Math.random() - 0.5) * 0.6, // Increased spread
+            (Math.random() - 0.5) * 0.6,
+            (Math.random() - 0.5) * 0.6
+        );
+        
+        const colors = [0xff8800, 0xff4400, 0xffcc00, 0xff0000, 0xffaa00]; // More vibrant colors
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        
+        createParticle(position, velocity, color, 40 + Math.random() * 30); // Longer life
+    }
+}
+
+function createHitEffect(position) {
+    // Smaller effect for player hits
+    for (let i = 0; i < 8; i++) { // Increased from 5 to 8
+        const velocity = new T.Vector3(
+            (Math.random() - 0.5) * 0.4,
+            (Math.random() - 0.5) * 0.4,
+            (Math.random() - 0.5) * 0.4
+        );
+        
+        createParticle(position, velocity, 0xff3333, 25 + Math.random() * 20); // Brighter red
+    }
+}
+
+function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const particle = particles[i];
+        const userData = particle.userData;
+        
+        // Update position
+        particle.position.add(userData.velocity);
+        
+        // Apply gravity/physics
+        userData.velocity.y -= 0.008; // Reduced gravity for more visible effect
+        userData.velocity.multiplyScalar(0.99); // Less friction
+        
+        // Update life and opacity
+        userData.life--;
+        const fadeRatio = userData.life / userData.maxLife;
+        particle.material.opacity = fadeRatio;
+        particle.material.emissiveIntensity = fadeRatio * 0.5; // Maintain glow
+        
+        // Remove dead particles
+        if (userData.life <= 0) {
+            scene.remove(particle);
+            particle.geometry.dispose();
+            particle.material.dispose();
+            particles.splice(i, 1);
+        }
+    }
+}
+
 function startGame() {
     gameRunning = true;
     gameStarted = true;
@@ -65,15 +179,19 @@ function startGame() {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     modeBtn.disabled = true;
-    console.log("Game Started!");
 }
 
 function stopGame() {
     gameRunning = false;
-    startBtn.disabled = false;
     stopBtn.disabled = true;
     modeBtn.disabled = false;
-    console.log("Game Stopped!");
+    
+    // Only enable start button if player still has lives
+    if (lives > 0) {
+        startBtn.disabled = false;
+    } else {
+        startBtn.disabled = true; // Keep start disabled after game over
+    }
 }
 
 function resetGame() {
@@ -82,18 +200,27 @@ function resetGame() {
     gameSpeed = baseGameSpeed;
     gameTime = 0;
     lives = 3;
+    score = 0; // Reset score
     invulnerable = false;
     invulnerabilityTimer = 0;
     updateLivesDisplay();
+    updateScoreDisplay();
     
     // Clear all obstacles
     obstacles.forEach(obstacle => {
         scene.remove(obstacle);
-        // Dispose of geometry and materials to prevent memory leaks
         obstacle.geometry.dispose();
         obstacle.material.dispose();
     });
     obstacles = [];
+    
+    // Clear all particles
+    particles.forEach(particle => {
+        scene.remove(particle);
+        particle.geometry.dispose();
+        particle.material.dispose();
+    });
+    particles = [];
     
     // Reset player position and appearance
     if (player) {
@@ -103,7 +230,7 @@ function resetGame() {
         player.material.transparent = true;
     }
     
-    // Reset buttons
+    // Reset buttons - start button is now enabled again after reset
     startBtn.disabled = false;
     stopBtn.disabled = true;
     modeBtn.disabled = false;
@@ -115,8 +242,6 @@ function resetGame() {
         p.material.dispose();
     });
     projectiles = [];
-    
-    console.log("Game Reset!");
 }
 
 function loseLife() {
@@ -124,8 +249,11 @@ function loseLife() {
     updateLivesDisplay();
     
     if (lives <= 0) {
+        const newHighScore = checkHighScore();  // Check high score 
+        
         stopGame();
-        console.log("Game Over! No lives remaining!");
+        startBtn.disabled = true;   // Disable start button after game over
+        
         return;
     }
     
@@ -141,8 +269,6 @@ function loseLife() {
             player.material.opacity = 0.6;
         }
     }, 150);
-    
-    console.log(`Hit! Lives remaining: ${lives}`);
 }
 
 // Player (Cube in prototype mode)
@@ -157,6 +283,7 @@ function createPlayer() {
     player.position.set(0, 0, -5);
     scene.add(player);
 }
+
 // Shoot projectile function
 function shootProjectile() {
     if (!gameRunning) return;
@@ -181,9 +308,8 @@ function shootProjectile() {
     // Add to scene and array
     scene.add(projectile);
     projectiles.push(projectile);
-    
-    console.log("Pew!");
 }
+
 function spawnProjectile() {
     // A long, thin yellow box looks like a laser
     const geometry = new T.BoxGeometry(0.2, 0.2, 1); 
@@ -194,12 +320,11 @@ function spawnProjectile() {
     });
     const projectile = new T.Mesh(geometry, material);
 
-    // 2. Position it at the player's current spot
-    // We offset Z slightly so it doesn't clip inside the player box
+    // Position it at the player's current spot
     projectile.position.copy(player.position);
     projectile.position.z += 1.0; 
 
-    // 3. Add to scene and tracking array
+    // Add to scene and tracking array
     scene.add(projectile);
     projectiles.push(projectile);
 }
@@ -255,8 +380,7 @@ function spawnObstacle() {
 }
 
 function updateProjectiles() {
-    // 1. Check Input (Spacebar)
-    // " " is the key string for Spacebar in most browsers
+    // Check Input (Spacebar)
     if (keys[" "] || keys["Spacebar"]) {
         const now = Date.now();
         if (now - lastShotTime > FIRE_RATE) {
@@ -265,15 +389,14 @@ function updateProjectiles() {
         }
     }
 
-    // 2. Move and Collide Projectiles
-    // Iterate backwards so we can safely remove items
+    // Move and Collide Projectiles
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const p = projectiles[i];
         
-        // Move bullet "forward" (Towards positive Z in your setup)
+        // Move bullet "forward"
         p.position.z += PROJECTILE_SPEED;
 
-        // Cleanup: Remove if it goes too far off screen (Memory Management)
+        // Cleanup: Remove if it goes too far off screen
         if (p.position.z > 50) {
             scene.remove(p);
             p.geometry.dispose();
@@ -289,26 +412,31 @@ function updateProjectiles() {
             // Calculate distance between bullet and obstacle
             const dist = p.position.distanceTo(obs.position);
             
-            // Get obstacle size (from your existing userData)
+            // Get obstacle size
             const hitDistance = obs.userData.size + 0.5; 
 
             if (dist < hitDistance) {
                 // --- HIT! ---
                 
-                // 1. Remove Obstacle
+                // Create explosion effect
+                createExplosion(obs.position);
+                
+                // Add score for destroying obstacle (but don't check high score yet)
+                addScore(POINTS_PER_DESTROY);
+                
+                // Remove Obstacle
                 scene.remove(obs);
                 obs.geometry.dispose();
                 obs.material.dispose();
                 obstacles.splice(j, 1);
                 
-                // 2. Remove Projectile
+                // Remove Projectile
                 scene.remove(p);
                 p.geometry.dispose();
                 p.material.dispose();
                 projectiles.splice(i, 1);
                 
-                console.log("Target Destroyed!");
-                break; // Stop checking this bullet, it's gone
+                break; // Stop checking
             }
         }
     }
@@ -356,6 +484,9 @@ function updateGame() {
 
     // Update projectiles
     updateProjectiles();
+    
+    // Update particles
+    updateParticles();
     
     // Handle invulnerability timer
     if (invulnerable) {
@@ -416,8 +547,6 @@ function toggleMode() {
     isPrototypeMode = !isPrototypeMode;
     updateModeDisplay();
     resetGame();
-    
-    console.log(`Switched to ${isPrototypeMode ? 'Prototype' : 'Full'} mode`);
 }
 
 // Camera setup
@@ -443,6 +572,8 @@ renderer.setClearColor(0x000011); // Slightly blue-tinted black
 createPlayer();
 updateLivesDisplay();
 updateModeDisplay();
+updateScoreDisplay();
+updateHighScoreDisplay(); // Initialize high score display
 
 // Initialize button states
 stopBtn.disabled = true;
