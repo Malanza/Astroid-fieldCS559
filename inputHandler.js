@@ -20,18 +20,18 @@ export function handleInput(player, gameRunning) {
     const moveSpeed = 0.3;
     
     // Left/Right movement
-    if (keys['d'] || keys['D']) {
+    if (keys['d'] || keys['D'] || keys['ArrowRight']) {
         player.position.x = Math.max(player.position.x - moveSpeed, -10);
     }
-    if (keys['a'] || keys['A']) {
+    if (keys['a'] || keys['A'] || keys['ArrowLeft']) {
         player.position.x = Math.min(player.position.x + moveSpeed, 10);
     }
     
     // Up/Down movement
-    if (keys['w'] || keys['W']) {
+    if (keys['w'] || keys['W'] || keys['ArrowUp']) {
         player.position.y = Math.min(player.position.y + moveSpeed, 5);
     }
-    if (keys['s'] || keys['S']) {
+    if (keys['s'] || keys['S'] || keys['ArrowDown']) {
         player.position.y = Math.max(player.position.y - moveSpeed, -5);
     }
 }
