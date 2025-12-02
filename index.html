@@ -7,15 +7,7 @@
 
 <body>
 
-  <div id="div1"></div>
-  <script type="importmap">
-      {
-          "imports": {
-              "three": "three.module.js"
-          }
-      }
-  </script>
-  <div id="gameContainer">
+  <div id="gameContainer" style="position: relative; display: inline-block;">
     <div id="div1"></div>
     <div id="game-over-screen" style="
     position: absolute;
@@ -31,20 +23,42 @@
     flex-direction: column;
     z-index: 10;
 ">
-    <h2>GAME OVER</h2>
-    <p>Try again!</p>
-    <button onclick="document.getElementById('resetBtn').click()">Play Again</button>
-</div>
+      <h2>GAME OVER</h2>
+      <p>Try again!</p>
+      <button onclick="document.getElementById('resetBtn').click()">Play Again</button>
+    </div>
+    <script type="importmap">
+      {
+          "imports": {
+              "three": "three.module.js"
+          }
+      }
+  </script>
     <div id="gameUI">
       <div id="lives">Lives: 3</div>
       <div id="score">Score: 0</div>
+      <div id="highScore">High Score: 0</div>
+      <div id="timer">Time: 0:00</div>
       <div id="modeDisplay">Mode: Prototype</div>
+      <button id="soundBtn">Sound: ON</button>
     </div>
     <div id="controls">
       <button id="startBtn">Start Game</button>
       <button id="stopBtn">Pause Game</button>
       <button id="resetBtn">Reset Game</button>
       <button id="modeBtn">Switch to Full Mode</button>
+    </div>
+    <div id="instructions">
+      <h3>Controls</h3>
+      <div class="control-item">
+        <strong>Arrow Keys / WASD:</strong> Move spaceship
+      </div>
+      <div class="control-item">
+        <strong>Spacebar:</strong> Shoot lasers
+      </div>
+      <div class="control-item">
+        <strong>Goal:</strong> Destroy asteroids and avoid collisions!
+      </div>
     </div>
   </div>
   <script src="main.js" type="module" defer></script>
