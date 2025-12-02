@@ -42,7 +42,7 @@ const resetBtn = document.getElementById('resetBtn');
 const modeBtn = document.getElementById('modeBtn');
 const livesDisplay = document.getElementById('lives');
 const modeDisplay = document.getElementById('modeDisplay');
-
+const gameOverScreen = document.getElementById('game-over-screen');
 // Button event listeners
 startBtn.addEventListener('click', startGame);
 stopBtn.addEventListener('click', stopGame);
@@ -65,6 +65,7 @@ function startGame() {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     modeBtn.disabled = true;
+    if (gameOverScreen) gameOverScreen.style.display = 'none';
     console.log("Game Started!");
 }
 
@@ -115,6 +116,8 @@ function resetGame() {
         p.material.dispose();
     });
     projectiles = [];
+
+    if (gameOverScreen) gameOverScreen.style.display = 'none';
     
     console.log("Game Reset!");
 }
@@ -125,6 +128,7 @@ function loseLife() {
     
     if (lives <= 0) {
         stopGame();
+        if (gameOverScreen) gameOverScreen.style.display = 'flex';
         console.log("Game Over! No lives remaining!");
         return;
     }

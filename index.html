@@ -17,6 +17,24 @@
   </script>
   <div id="gameContainer">
     <div id="div1"></div>
+    <div id="game-over-screen" style="
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 500px; /* Match your canvas size */
+    height: 500px; /* Match your canvas size */
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
+    display: none; /* Initially hidden */
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 10;
+">
+    <h2>GAME OVER</h2>
+    <p>Try again!</p>
+    <button onclick="document.getElementById('resetBtn').click()">Play Again</button>
+</div>
     <div id="gameUI">
       <div id="lives">Lives: 3</div>
       <div id="score">Score: 0</div>
