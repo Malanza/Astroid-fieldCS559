@@ -54,6 +54,7 @@ const scoreDisplay = document.getElementById('score');
 const highScoreDisplay = document.getElementById('highScore');
 const timerDisplay = document.getElementById('timer');
 
+const gameOverScreen = document.getElementById('game-over-screen');
 // Button event listeners
 startBtn.addEventListener('click', startGame);
 stopBtn.addEventListener('click', pauseGame);
@@ -197,6 +198,8 @@ function startGame() {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     modeBtn.disabled = true;
+    if (gameOverScreen) gameOverScreen.style.display = 'none';
+    console.log("Game Started!");
 }
 
 function pauseGame() {
@@ -206,12 +209,21 @@ function pauseGame() {
         // Pause the game
         gameRunning = false;
         gamePaused = true;
-        startBtn.disabled = false;
+        startBtn.disabled = true; // Keep start disabled
         stopBtn.textContent = 'Resume Game';
-        stopBtn.disabled = true;
+        stopBtn.disabled = false;
         modeBtn.disabled = false;
-        console.log("Game Paused - Press Start to Resume");
+        console.log("Game Paused - Click Resume to Continue");
         playSound('pause');
+    } else if (gamePaused) {
+        // Resume the game
+        gameRunning = true;
+        gamePaused = false;
+        startBtn.disabled = true;
+        stopBtn.textContent = 'Pause Game';
+        stopBtn.disabled = false;
+        modeBtn.disabled = true;
+        console.log("Game Resumed");
     }
 }
 
@@ -267,6 +279,8 @@ function resetGame() {
         p.material.dispose();
     });
     projectiles = [];
+
+    if (gameOverScreen) gameOverScreen.style.display = 'none';
     
     console.log("Game Reset!");
 }
@@ -292,6 +306,9 @@ function loseLife() {
         } else {
             console.log(`Game Over! Final Score: ${score} | High Score: ${highScore} | Survived: ${Math.floor(survivalTime / 60)}s`);
         }
+        // stopGame();
+        if (gameOverScreen) gameOverScreen.style.display = 'flex';
+        console.log("Game Over! No lives remaining!");
         return;
     }
     
