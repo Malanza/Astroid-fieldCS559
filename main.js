@@ -1,8 +1,31 @@
 // @ts-nocheck
-
-import * as T from "./three.module.js";
+import * as T from "./libs/three.js";
 import { handleInput, keys } from "./inputHandler.js";
 import { soundManager } from "./soundManager.js";
+import { GLTFLoader } from './libs/GLTFLoader.js';
+import { renderStars } from "./libs/stars.js";
+
+const loader = new GLTFLoader();
+let asteroidMesh = null;
+let asteroidMesh2 = null;
+loader.load('/assets/asteroid3.glb', (gltf) => {
+    gltf.scene.traverse(child => {
+        if (child.isMesh) {
+            asteroidMesh = child;     // this is your real mesh
+        }
+    });
+}, undefined, (error) => {
+  console.error('Error: could not load asteroid object', error);
+});
+loader.load('/assets/asteroid4.glb', (gltf) => {
+    gltf.scene.traverse(child => {
+        if (child.isMesh) {
+            asteroidMesh2 = child;     // this is your real mesh
+        }
+    });
+}, undefined, (error) => {
+  console.error('Error: could not load asteroid object', error);
+});
 
 let renderer = new T.WebGLRenderer({preserveDrawingBuffer:true});
 renderer.setSize(500, 500);
@@ -11,6 +34,8 @@ renderer.domElement.id = "canvas";
 
 const scene = new T.Scene();
 const camera = new T.PerspectiveCamera( 75, 500 / 500, 0.1, 1000 );
+
+renderStars(scene)
 
 // Game state
 let isPrototypeMode = true;
@@ -379,46 +404,58 @@ function spawnProjectile() {
 function spawnObstacle() {
     if (!gameRunning || gamePaused || obstacles.length >= MAX_OBSTACLES) return;
     
-    const obstacleType = Math.random() < 0.5 ? 'sphere' : 'pyramid';
+    const obstacleType = Math.random() < 0.5 ? 'asteroid' : 'asteroid2';
+    // const obstacleType = 'asteroid';
     let geometry, material, obstacle;
-    
-    if (obstacleType === 'sphere') {
-        const radius = 0.8 + Math.random() * 1.8;
+    let obstacleSize = 5;
+
+    if (isPrototypeMode) {    
+        const radius = 0.8 + Math.random() * 1.8; // More size variety
         geometry = new T.SphereGeometry(radius, 8, 6);
-        material = new T.MeshStandardMaterial({ color: 0xff4444 });
+        material = new T.MeshStandardMaterial({ color: 0xff4444 }); 
+        obstacle = new T.Mesh(geometry, material);
     } else {
-        const radius = 0.8 + Math.random() * 1.2;
-        const height = 1.5 + Math.random() * 2.5;
-        geometry = new T.ConeGeometry(radius, height, 6);
-        material = new T.MeshStandardMaterial({ color: 0x4444ff });
+        if (obstacleType === 'asteroid') {
+            obstacle = asteroidMesh.clone(true)
+            obstacleSize = 1;
+            // console.log(obstacle);
+        } else if (obstacleType === 'asteroid2') {
+            obstacle = asteroidMesh2.clone(true)
+            obstacleSize = 1.5;
+        }
     }
     
-    obstacle = new T.Mesh(geometry, material);
     obstacle.position.set(
         (Math.random() - 0.5) * 24,
         (Math.random() - 0.5) * 12,
         25 + Math.random() * 10
     );
     
-    obstacle.rotation.set(
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2
-    );
+    const axis = new T.Vector3(
+        Math.random() - 0.5,
+        Math.random() - 0.5,
+        Math.random() - 0.5
+    ).normalize();
+    const angularSpeed = 0.01 + Math.random() * 0.03;
+
+
+    const scale = 1 + Math.random() * 1.5;  // size between 0.5x and 2.0x
+    obstacle.scale.set(scale, scale, scale);
+
+    // Add speed variety - each obstacle has its own speed multiplier
+    const speedMultiplier = 0.7 + Math.random() * 0.6; // Between 0.7x and 1.3x base speed
     
-    const speedMultiplier = 0.7 + Math.random() * 0.6;
-    
+    const box = new T.Box3().setFromObject(obstacle);
+    const sizeVec = new T.Vector3();
+    box.getSize(sizeVec);
+
     obstacle.userData = {
-        rotationSpeed: {
-            x: (Math.random() - 0.5) * 0.15,
-            y: (Math.random() - 0.5) * 0.15,
-            z: (Math.random() - 0.5) * 0.15
-        },
-        size: obstacleType === 'sphere' ? obstacle.geometry.parameters.radius : 
-              Math.max(obstacle.geometry.parameters.radius, obstacle.geometry.parameters.height * 0.5),
-        speedMultiplier: speedMultiplier
+        rotationAxis: axis,
+        angularSpeed: angularSpeed,
+        size: obstacleSize * scale,
+        speedMultiplier: speedMultiplier // Individual speed for this obstacle
     };
-    
+        
     scene.add(obstacle);
     obstacles.push(obstacle);
 }
@@ -448,7 +485,9 @@ function updateProjectiles() {
         for (let j = obstacles.length - 1; j >= 0; j--) {
             const obs = obstacles[j];
             const dist = p.position.distanceTo(obs.position);
-            const hitDistance = obs.userData.size + 0.5; 
+            
+            // Get obstacle size (from your existing userData)
+            const hitDistance = obs.userData.size;
 
             if (dist < hitDistance) {
                 createExplosion(obs.position);
@@ -524,11 +563,17 @@ function updateGame() {
         const obstacle = obstacles[i];
         
         obstacle.position.z -= gameSpeed * obstacle.userData.speedMultiplier;
-        
-        obstacle.rotation.x += obstacle.userData.rotationSpeed.x;
-        obstacle.rotation.y += obstacle.userData.rotationSpeed.y;
-        obstacle.rotation.z += obstacle.userData.rotationSpeed.z;
-        
+
+        // if (obstacle.userData.debugSphere) {
+        //     obstacle.userData.debugSphere.position.copy(obstacle.position);
+        // }
+
+        // Rotate around random axis
+        const axis = obstacle.userData.rotationAxis;
+        const angle = obstacle.userData.angularSpeed;
+        obstacle.rotateOnAxis(axis, angle);
+
+        // Remove obstacles that have passed the player
         if (obstacle.position.z < -15) {
             scene.remove(obstacle);
             obstacle.geometry.dispose();
@@ -582,7 +627,7 @@ camera.lookAt(0, 0, 0);
 
 // Enhanced lighting
 scene.add(new T.AmbientLight("white", 0.3));
-let directionalLight = new T.DirectionalLight(0xffffff, 0.7);
+let directionalLight = new T.DirectionalLight(0xffffff, 2);
 directionalLight.position.set(10, 10, 5);
 directionalLight.castShadow = false;
 scene.add(directionalLight);
@@ -612,5 +657,3 @@ function animate() {
 }
 
 renderer.setAnimationLoop(animate);
-
-// CS559 2025 Workbook
