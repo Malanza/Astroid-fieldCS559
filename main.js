@@ -8,23 +8,28 @@ import { renderStars } from "./libs/stars.js";
 const loader = new GLTFLoader();
 let asteroidMesh = null;
 let asteroidMesh2 = null;
+let shipMesh = null;
 loader.load('/assets/asteroid3.glb', (gltf) => {
     gltf.scene.traverse(child => {
         if (child.isMesh) {
-            asteroidMesh = child;     // this is your real mesh
+            asteroidMesh = child;
         }
     });
-}, undefined, (error) => {
-  console.error('Error: could not load asteroid object', error);
 });
 loader.load('/assets/asteroid4.glb', (gltf) => {
     gltf.scene.traverse(child => {
         if (child.isMesh) {
-            asteroidMesh2 = child;     // this is your real mesh
+            asteroidMesh2 = child;
         }
     });
-}, undefined, (error) => {
-  console.error('Error: could not load asteroid object', error);
+});
+loader.load('/assets/ship.glb', (gltf) => {
+    gltf.scene.traverse(child => {
+        if (child.isMesh) {
+            shipMesh = child;    
+            shipMesh.rotation.y = Math.PI / 2; // fix rotation
+        }
+    });
 });
 
 let renderer = new T.WebGLRenderer({preserveDrawingBuffer:true});
@@ -104,6 +109,7 @@ function updateLivesDisplay() {
 function updateModeDisplay() {
     modeDisplay.textContent = `Mode: ${isPrototypeMode ? 'Prototype' : 'Full'}`;
     modeBtn.textContent = isPrototypeMode ? 'Switch to Full Mode' : 'Switch to Prototype Mode';
+    createPlayer()
 }
 
 function updateScoreDisplay() {
@@ -163,6 +169,18 @@ function createParticle(position, velocity, color, life) {
     particles.push(particle);
 }
 
+function createThrusterParticle(position) {
+    const velocity = new T.Vector3(
+        (Math.random() - 0.5) * 0.05,
+        (Math.random() - 0.5) * 0.05,
+        -0.5 - Math.random() * 0.1
+    );
+
+    const blue = 0x0077B6;
+
+    createParticle(position, velocity, blue, 20 + Math.random() * 10);
+}
+
 function createExplosion(position) {
     playSound('explosion');
     
@@ -200,6 +218,20 @@ function updateParticles() {
             particle.material.dispose();
             particles.splice(i, 1);
         }
+    }
+}
+
+function updateThrusters() {
+    if (isPrototypeMode) return;
+
+    const shipPos = player.position
+    const leftOffset = new T.Vector3(-1.5, 0, 0);
+    const rightOffset = new T.Vector3(1.5, 0, 0);
+
+
+    for (let i = 0; i < 3; i++) {
+        createThrusterParticle(leftOffset.clone().add(shipPos));
+        createThrusterParticle(rightOffset.clone().add(shipPos));
     }
 }
 
@@ -286,7 +318,7 @@ function resetGame() {
     // Reset player position and appearance
     if (player) {
         player.position.set(0, 0, -5);
-        player.material.color.setHex(0x00ff00);
+        // player.material.color.setHex(0x00ff00);
         player.material.opacity = 1.0;
         player.material.transparent = true;
     }
@@ -343,7 +375,7 @@ function loseLife() {
     player.material.color.setHex(0xff0000);
     setTimeout(() => {
         if (player) {
-            player.material.color.setHex(0x00ff00);
+            player.material.color.setHex(0xffffff);
             player.material.opacity = 0.6;
         }
     }, 150);
@@ -351,13 +383,25 @@ function loseLife() {
 
 // Player (Cube in prototype mode)
 function createPlayer() {
-    const geometry = new T.BoxGeometry(2, 2, 2);
-    const material = new T.MeshStandardMaterial({ 
-        color: 0x00ff00,
-        transparent: true,
-        opacity: 1.0
-    });
-    player = new T.Mesh(geometry, material);
+    if (player) {
+        scene.remove(player)
+        player.geometry.dispose();
+        player.material.dispose();
+    }
+
+
+    if (isPrototypeMode || !shipMesh) {
+        const geometry = new T.BoxGeometry(2, 2, 2);
+        const material = new T.MeshStandardMaterial({ 
+            color: 0x00ff00,
+            transparent: true,
+            opacity: 1.0
+        });
+        player = new T.Mesh(geometry, material);
+    } else {
+        player = shipMesh.clone(true)
+    }
+
     player.position.set(0, 0, -5);
     scene.add(player);
 }
@@ -653,6 +697,7 @@ function animate() {
     handleInput(player, gameRunning && !gamePaused);
     updatePlayerBounds();
     updateGame();
+    updateThrusters(); 
     renderer.render(scene, camera);
 }
 
