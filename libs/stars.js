@@ -2,7 +2,7 @@ import * as T from "./three.js";
 
 function renderStars(scene) {
     const loader = new T.CubeTextureLoader();
-    loader.setPath('/assets/skybox/');
+    loader.setPath('assets/skybox/');
 
     const skyboxTexture = loader.load([
     'right.png',
