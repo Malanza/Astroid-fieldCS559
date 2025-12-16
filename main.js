@@ -9,21 +9,21 @@ const loader = new GLTFLoader();
 let asteroidMesh = null;
 let asteroidMesh2 = null;
 let shipMesh = null;
-loader.load('/assets/asteroid3.glb', (gltf) => {
+loader.load('assets/asteroid3.glb', (gltf) => {
     gltf.scene.traverse(child => {
         if (child.isMesh) {
             asteroidMesh = child;
         }
     });
 });
-loader.load('/assets/asteroid4.glb', (gltf) => {
+loader.load('assets/asteroid4.glb', (gltf) => {
     gltf.scene.traverse(child => {
         if (child.isMesh) {
             asteroidMesh2 = child;
         }
     });
 });
-loader.load('/assets/ship.glb', (gltf) => {
+loader.load('assets/ship.glb', (gltf) => {
     gltf.scene.traverse(child => {
         if (child.isMesh) {
             shipMesh = child;    
